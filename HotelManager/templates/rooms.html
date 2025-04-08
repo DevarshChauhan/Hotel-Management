@@ -1,0 +1,137 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    {% if is_availability_search %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Available Rooms</h1>
+        <a href="{{ url_for('rooms') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Back to All Rooms
+        </a>
+    </div>
+    
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i> 
+        Showing available rooms from <strong>{{ check_in|format_date }}</strong> to <strong>{{ check_out|format_date }}</strong> 
+        ({{ nights }} night{% if nights != 1 %}s{% endif %})
+    </div>
+    {% else %}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Room Management</h1>
+    </div>
+    
+    <!-- Room Availability Check Form -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Check Room Availability</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('check_availability') }}" method="post" class="row g-3">
+                <div class="col-md-5">
+                    <label for="check_in" class="form-label">Check-in Date</label>
+                    <input type="date" class="form-control" id="check_in" name="check_in" required min="{{ today }}">
+                </div>
+                <div class="col-md-5">
+                    <label for="check_out" class="form-label">Check-out Date</label>
+                    <input type="date" class="form-control" id="check_out" name="check_out" required min="{{ today }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-2"></i> Check Availability
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Rooms List -->
+    <div class="row">
+        {% for room in rooms %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-{{ 'success' if room.is_available else 'danger' }} text-white">
+                    <h5 class="mb-0">Room {{ room.room_number }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="card-subtitle mb-2 text-body-secondary">{{ room.room_type }} Room</h6>
+                        <h4 class="text-primary">{{ room.price_per_night|inr_currency }} <small class="text-muted">per night</small></h4>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <span class="badge bg-{{ 'success' if room.is_available else 'danger' }}">
+                            {{ 'Available' if room.is_available else 'Unavailable' }}
+                        </span>
+                    </div>
+                    
+                    {% if is_availability_search and room.is_available %}
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('add_booking') }}?room_id={{ room.id }}&check_in={{ check_in }}&check_out={{ check_out }}" class="btn btn-primary">
+                            <i class="fas fa-calendar-plus me-2"></i> Book Now
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        {% if rooms|length == 0 %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> 
+                {% if is_availability_search %}
+                No rooms available for the selected dates.
+                {% else %}
+                No rooms found in the system.
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Set minimum dates for check-in and check-out
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const checkInInput = document.getElementById('check_in');
+        const checkOutInput = document.getElementById('check_out');
+        
+        if (checkInInput) {
+            checkInInput.min = today;
+            checkInInput.value = today;
+        }
+        
+        if (checkOutInput) {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            
+            checkOutInput.min = tomorrowStr;
+            checkOutInput.value = tomorrowStr;
+        }
+        
+        // Update check-out min date when check-in changes
+        if (checkInInput && checkOutInput) {
+            checkInInput.addEventListener('change', function() {
+                const checkInDate = new Date(this.value);
+                const nextDay = new Date(checkInDate);
+                nextDay.setDate(nextDay.getDate() + 1);
+                const nextDayStr = nextDay.toISOString().split('T')[0];
+                
+                checkOutInput.min = nextDayStr;
+                
+                // If current check-out date is before new min date, update it
+                if (checkOutInput.value < nextDayStr) {
+                    checkOutInput.value = nextDayStr;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

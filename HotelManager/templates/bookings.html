@@ -1,0 +1,79 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Booking Management</h1>
+        <a href="{{ url_for('add_booking') }}" class="btn btn-primary">
+            <i class="fas fa-calendar-plus me-2"></i> New Booking
+        </a>
+    </div>
+    
+    <!-- Bookings List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">All Bookings</h5>
+        </div>
+        <div class="card-body">
+            {% if bookings %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Booking ID</th>
+                            <th>Guest</th>
+                            <th>Room</th>
+                            <th>Check-in</th>
+                            <th>Check-out</th>
+                            <th>Nights</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                        <tr>
+                            <td>{{ booking.id }}</td>
+                            <td>{{ booking.guest.name }}</td>
+                            <td>{{ booking.room.room_number }} ({{ booking.room.room_type }})</td>
+                            <td>{{ booking.check_in_date|format_date }}</td>
+                            <td>{{ booking.check_out_date|format_date }}</td>
+                            <td>{{ booking.nights }}</td>
+                            <td>{{ booking.total_price|inr_currency }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if booking.status == 'confirmed' %}bg-success
+                                    {% elif booking.status == 'cancelled' %}bg-danger
+                                    {% else %}bg-warning{% endif %}">
+                                    {{ booking.status|capitalize }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-2">
+                                    <a href="{{ url_for('edit_booking', booking_id=booking.id) }}" class="btn btn-sm btn-info">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% if booking.status == 'confirmed' %}
+                                    <form action="{{ url_for('cancel_booking', booking_id=booking.id) }}" method="post" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to cancel this booking?')">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> No bookings found.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

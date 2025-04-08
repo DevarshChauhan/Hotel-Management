@@ -1,0 +1,160 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit Booking #{{ booking.id }}</h1>
+        <a href="{{ url_for('bookings') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Back to Bookings
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Edit Booking Information</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('edit_booking', booking_id=booking.id) }}" method="post" id="bookingForm">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="guest_id" class="form-label">Guest <span class="text-danger">*</span></label>
+                        <select class="form-select" id="guest_id" name="guest_id" required>
+                            <option value="">Select Guest</option>
+                            {% for guest in guests %}
+                            <option value="{{ guest.id }}" {% if guest.id == booking.guest_id %}selected{% endif %}>
+                                {{ guest.name }} ({{ guest.email }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="room_id" class="form-label">Room <span class="text-danger">*</span></label>
+                        <select class="form-select" id="room_id" name="room_id" required>
+                            <option value="">Select Room</option>
+                            {% for room in rooms %}
+                            <option value="{{ room.id }}" 
+                                {% if room.id == booking.room_id %}selected{% endif %}
+                                data-price="{{ room.price_per_night }}">
+                                Room {{ room.room_number }} ({{ room.room_type }}) - {{ room.price_per_night|inr_currency }} per night
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="check_in" class="form-label">Check-in Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="check_in" name="check_in" value="{{ booking.check_in_date }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="check_out" class="form-label">Check-out Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="check_out" name="check_out" value="{{ booking.check_out_date }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="status" class="form-label">Status <span class="text-danger">*</span></label>
+                        <select class="form-select" id="status" name="status" required>
+                            <option value="confirmed" {% if booking.status == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                            <option value="cancelled" {% if booking.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                            <option value="checked-out" {% if booking.status == 'checked-out' %}selected{% endif %}>Checked Out</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="card bg-light mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Booking Summary</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p>Room Price: <span id="pricePerNight">{{ (booking.total_price / utils.calculate_nights(booking.check_in_date, booking.check_out_date))|inr_currency }}</span> per night</p>
+                            </div>
+                            <div class="col-md-4">
+                                <p>Number of Nights: <span id="numNights">{{ utils.calculate_nights(booking.check_in_date, booking.check_out_date) }}</span></p>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="fw-bold">Total Price: <span id="totalPrice">{{ booking.total_price|inr_currency }}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-save me-2"></i> Update Booking
+                    </button>
+                    <a href="{{ url_for('bookings') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkInInput = document.getElementById('check_in');
+        const checkOutInput = document.getElementById('check_out');
+        const roomSelect = document.getElementById('room_id');
+        
+        // Update checkout min date when checkin changes
+        if (checkInInput && checkOutInput) {
+            checkInInput.addEventListener('change', function() {
+                const checkInDate = new Date(this.value);
+                const nextDay = new Date(checkInDate);
+                nextDay.setDate(nextDay.getDate() + 1);
+                const nextDayStr = nextDay.toISOString().split('T')[0];
+                
+                checkOutInput.min = nextDayStr;
+                
+                // If current checkout date is before new min date, update it
+                if (checkOutInput.value < nextDayStr) {
+                    checkOutInput.value = nextDayStr;
+                }
+                
+                updateBookingSummary();
+            });
+            
+            checkOutInput.addEventListener('change', updateBookingSummary);
+        }
+        
+        // Room selection change
+        if (roomSelect) {
+            roomSelect.addEventListener('change', updateBookingSummary);
+        }
+        
+        // Initial calculation
+        updateBookingSummary();
+        
+        // Calculate booking summary
+        function updateBookingSummary() {
+            if (roomSelect.value && checkInInput.value && checkOutInput.value) {
+                // Make API call to get updated price
+                fetch(`/api/room/price?room_id=${roomSelect.value}&check_in=${checkInInput.value}&check_out=${checkOutInput.value}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Format currency in Indian Rupee format
+                        function formatIndianCurrency(amount) {
+                            return '₹' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+                        }
+                        
+                        document.getElementById('pricePerNight').textContent = formatIndianCurrency(data.price_per_night);
+                        document.getElementById('numNights').textContent = data.nights;
+                        document.getElementById('totalPrice').textContent = formatIndianCurrency(data.total_price);
+                        
+                        // Enable/disable submit button based on valid dates
+                        const submitBtn = document.getElementById('submitBtn');
+                        if (data.nights > 0) {
+                            submitBtn.disabled = false;
+                        } else {
+                            submitBtn.disabled = true;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                    });
+            }
+        }
+    });
+</script>
+{% endblock %}

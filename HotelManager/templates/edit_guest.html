@@ -1,0 +1,67 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Edit Guest</h1>
+        <a href="{{ url_for('guests') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Back to Guests
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Edit Guest Information</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('edit_guest', guest_id=guest.id) }}" method="post">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ guest.name }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="email" name="email" value="{{ guest.email }}" required>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="phone" class="form-label">Phone Number <span class="text-danger">*</span></label>
+                        <input type="tel" class="form-control" id="phone" name="phone" value="{{ guest.phone }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="address" class="form-label">Address</label>
+                        <input type="text" class="form-control" id="address" name="address" value="{{ guest.address or '' }}">
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="id_type" class="form-label">ID Type</label>
+                        <select class="form-select" id="id_type" name="id_type">
+                            <option value="">Select ID Type</option>
+                            <option value="Passport" {% if guest.id_type == 'Passport' %}selected{% endif %}>Passport</option>
+                            <option value="Driver's License" {% if guest.id_type == "Driver's License" %}selected{% endif %}>Driver's License</option>
+                            <option value="National ID" {% if guest.id_type == 'National ID' %}selected{% endif %}>National ID</option>
+                            <option value="Other" {% if guest.id_type == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_number" class="form-label">ID Number</label>
+                        <input type="text" class="form-control" id="id_number" name="id_number" value="{{ guest.id_number or '' }}">
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-2"></i> Update Guest
+                    </button>
+                    <a href="{{ url_for('guests') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

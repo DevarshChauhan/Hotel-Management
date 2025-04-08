@@ -1,0 +1,219 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Create New Booking</h1>
+        <a href="{{ url_for('bookings') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i> Back to Bookings
+        </a>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Booking Information</h5>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('add_booking') }}" method="post" id="bookingForm">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="guest_id" class="form-label">Guest <span class="text-danger">*</span></label>
+                        <select class="form-select" id="guest_id" name="guest_id" required>
+                            <option value="">Select Guest</option>
+                            {% for guest in guests %}
+                            <option value="{{ guest.id }}">{{ guest.name }} ({{ guest.email }})</option>
+                            {% endfor %}
+                        </select>
+                        {% if not guests %}
+                        <div class="form-text text-warning">
+                            <i class="fas fa-exclamation-triangle me-1"></i> No guests found. <a href="{{ url_for('add_guest') }}">Add a guest first</a>.
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="room_id" class="form-label">Room <span class="text-danger">*</span></label>
+                        <select class="form-select" id="room_id" name="room_id" required>
+                            <option value="">Select Room</option>
+                            {% for room in rooms %}
+                            {% if room.is_available %}
+                            <option value="{{ room.id }}" data-price="{{ room.price_per_night }}">
+                                Room {{ room.room_number }} ({{ room.room_type }}) - {{ room.price_per_night|inr_currency }} per night
+                            </option>
+                            {% endif %}
+                            {% endfor %}
+                        </select>
+                        {% if not rooms or rooms|selectattr('is_available')|list|count == 0 %}
+                        <div class="form-text text-warning">
+                            <i class="fas fa-exclamation-triangle me-1"></i> No available rooms found.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="check_in" class="form-label">Check-in Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="check_in" name="check_in" required min="{{ today }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="check_out" class="form-label">Check-out Date <span class="text-danger">*</span></label>
+                        <input type="date" class="form-control" id="check_out" name="check_out" required min="{{ today }}">
+                    </div>
+                </div>
+                
+                <div class="card bg-light mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Booking Summary</h5>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p>Room Price: <span id="pricePerNight">₹0.00</span> per night</p>
+                            </div>
+                            <div class="col-md-4">
+                                <p>Number of Nights: <span id="numNights">0</span></p>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="fw-bold">Total Price: <span id="totalPrice">₹0.00</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">
+                        <i class="fas fa-calendar-check me-2"></i> Create Booking
+                    </button>
+                    <a href="{{ url_for('bookings') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default dates
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowStr = tomorrow.toISOString().split('T')[0];
+        
+        const checkInInput = document.getElementById('check_in');
+        const checkOutInput = document.getElementById('check_out');
+        
+        // Set min dates and default values
+        if (checkInInput) {
+            checkInInput.min = todayStr;
+            checkInInput.value = todayStr;
+        }
+        
+        if (checkOutInput) {
+            checkOutInput.min = tomorrowStr;
+            checkOutInput.value = tomorrowStr;
+        }
+        
+        // Get URL parameters if they exist (when navigating from availability check)
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.has('room_id')) {
+            const roomId = urlParams.get('room_id');
+            const roomSelect = document.getElementById('room_id');
+            if (roomSelect) {
+                roomSelect.value = roomId;
+            }
+        }
+        
+        if (urlParams.has('check_in')) {
+            const checkIn = urlParams.get('check_in');
+            if (checkInInput) {
+                checkInInput.value = checkIn;
+            }
+        }
+        
+        if (urlParams.has('check_out')) {
+            const checkOut = urlParams.get('check_out');
+            if (checkOutInput) {
+                checkOutInput.value = checkOut;
+            }
+        }
+        
+        // Update checkout min date when checkin changes
+        if (checkInInput && checkOutInput) {
+            checkInInput.addEventListener('change', function() {
+                const checkInDate = new Date(this.value);
+                const nextDay = new Date(checkInDate);
+                nextDay.setDate(nextDay.getDate() + 1);
+                const nextDayStr = nextDay.toISOString().split('T')[0];
+                
+                checkOutInput.min = nextDayStr;
+                
+                // If current checkout date is before new min date, update it
+                if (checkOutInput.value < nextDayStr) {
+                    checkOutInput.value = nextDayStr;
+                }
+                
+                updateBookingSummary();
+            });
+            
+            checkOutInput.addEventListener('change', updateBookingSummary);
+        }
+        
+        // Room selection change
+        const roomSelect = document.getElementById('room_id');
+        if (roomSelect) {
+            roomSelect.addEventListener('change', updateBookingSummary);
+        }
+        
+        // Initial calculation
+        updateBookingSummary();
+        
+        // Calculate booking summary
+        function updateBookingSummary() {
+            const roomSelect = document.getElementById('room_id');
+            const checkInInput = document.getElementById('check_in');
+            const checkOutInput = document.getElementById('check_out');
+            
+            if (roomSelect.value && checkInInput.value && checkOutInput.value) {
+                const selectedOption = roomSelect.options[roomSelect.selectedIndex];
+                const pricePerNight = selectedOption ? parseFloat(selectedOption.dataset.price) : 0;
+                
+                const checkInDate = new Date(checkInInput.value);
+                const checkOutDate = new Date(checkOutInput.value);
+                
+                // Calculate number of nights
+                const timeDiff = checkOutDate - checkInDate;
+                const nights = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                
+                // Calculate total price
+                const totalPrice = pricePerNight * nights;
+                
+                // Update the display
+                // Format currency in Indian Rupee format
+                function formatIndianCurrency(amount) {
+                    return '₹' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+                }
+                
+                document.getElementById('pricePerNight').textContent = formatIndianCurrency(pricePerNight);
+                document.getElementById('numNights').textContent = nights;
+                document.getElementById('totalPrice').textContent = formatIndianCurrency(totalPrice);
+                
+                // Enable/disable submit button based on valid dates
+                const submitBtn = document.getElementById('submitBtn');
+                if (nights > 0) {
+                    submitBtn.disabled = false;
+                } else {
+                    submitBtn.disabled = true;
+                }
+            } else {
+                // Reset the display if any required field is empty
+                document.getElementById('pricePerNight').textContent = '₹0.00';
+                document.getElementById('numNights').textContent = '0';
+                document.getElementById('totalPrice').textContent = '₹0.00';
+            }
+        }
+    });
+</script>
+{% endblock %}
